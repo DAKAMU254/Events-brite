@@ -1,11 +1,11 @@
 import React, { useContext, useState } from 'react'
-import { AuthContext } from '../context/AuthContext'
+import { useAuth } from '../../context/AuthContext'
 import { Link } from 'react-router-dom'
-import { EventContext } from '../context/EventContext'
+import { EventContext } from '../../context/EventContext'
 
 function AddEvent() {
 
-  const {current_user} = useContext(AuthContext)
+  const {user} = useAuth()
   const {AddEvent} = useContext(EventContext)
 
   const [title, setTitle] = useState()
@@ -15,14 +15,14 @@ function AddEvent() {
   const  handleSubmit = (e) =>{
     e.preventDefault()
 
-    AddEvent(title, image, description, current_user.id)
+    AddEvent(title, image, description, user.id)
 }
 
   return (
 
     <div>
     <div className="container" style={{"min-height":"70vh"}}>
-      {current_user && current_user?
+      {user && user?
       <>
         
         <div class="col-md-10 mx-auto col-lg-5">
