@@ -1,7 +1,7 @@
 # Eventsbrite
 ## your favorite events manager app
 
-#### Author: Baruch Marambi
+#### Author: muchai kamau
 
 ###### We are still trying to make the deployed ones work as expected but if you download the code everything is perfect..
 
@@ -23,4 +23,4 @@ For attendees, Eventbrite provides a user-friendly platform to search for events
 ## to use in your computer:
 clone the application, navigate to React and npm start
 
-## By Baruch Marambi
+## By Muchai Kamau
