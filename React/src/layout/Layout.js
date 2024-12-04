@@ -7,12 +7,9 @@ function Layout() {
   return (
     <div>
       <Navbar />
-      <div style={{"min-height":'80vh'}}>
-      
-     <Outlet />
+      <div style={{ "min-height": "80vh" }}>
+        <Outlet />
       </div>
-
-     
 
       <Footer />
     </div>
