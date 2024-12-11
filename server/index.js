@@ -16,10 +16,6 @@ import winston from "winston";
 dotenv.config();
 
 const requiredEnvVars = [
-  "JWT_SECRET",
-  "JWT_REFRESH_SECRET",
-  "JWT_EXPIRATION",
-  "JWT_REFRESH_EXPIRATION",
   "CLOUDINARY_API_KEY",
   "CLOUDINARY_API_SECRET",
   "CLOUDINARY_CLOUD_NAME",
@@ -62,23 +58,6 @@ const limiter = rateLimit({
   max: 100,
 });
 
-const authLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 5,
-});
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 5 * 1024 * 1024,
-  },
-  fileFilter: (req, file, cb) => {
-    if (!file.mimetype.startsWith("image/")) {
-      return cb(new Error("Only images are allowed"));
-    }
-    cb(null, true);
-  },
-});
 
 cloudinary.config({
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -101,169 +80,17 @@ app.get("/health", (req, res) => {
   res.status(200).json({ status: "healthy" });
 });
 
-const generateTokens = (userId) => {
-  try {
-    const accessToken = jwt.sign({ id: userId }, process.env.JWT_SECRET, {
-      expiresIn: 15 * 60,
-    });
-    const refreshToken = jwt.sign(
-      { id: userId },
-      process.env.JWT_REFRESH_SECRET,
-      {
-        expiresIn: 15 * 24 * 60 * 60,
-      }
-    );
-    return { accessToken, refreshToken };
-  } catch (error) {
-    logger.error("Token generation failed:", error);
-    throw new Error("Authentication service unavailable");
-  }
-};
-
-const authenticateToken = (req, res, next) => {
-  try {
-    // const token = req.headers["authorization"]?.split(" ")[1];
-    if (!token) {
-      return res.status(401).json({ error: "Authentication required" });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+  },
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith("image/")) {
+      return cb(new Error("Only images are allowed"));
     }
-
-    const verified = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = verified;
-    next();
-  } catch (err) {
-    logger.warn("Authentication failed:", { error: err.message });
-    res.status(403).json({ error: "Authentication failed" });
-  }
-};
-
-app.post("/refresh", async (req, res) => {
-  const { refreshToken } = req.body;
-
-  if (!refreshToken) {
-    return res.status(401).json({ error: "Authentication required" });
-  }
-
-  try {
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-    const user = await prisma.user.findUnique({ where: { id: decoded.id } });
-
-    if (!user) {
-      return res.status(401).json({ error: "Authentication failed" });
-    }
-
-    const tokens = generateTokens(user.id);
-
-    res.cookie("refreshToken", tokens.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: parseInt(15 * 24 * 60 * 60) * 1000,
-    });
-
-    res.status(200).json({ accessToken: tokens.accessToken });
-  } catch (err) {
-    logger.error("Token refresh failed:", err);
-    res.status(403).json({ error: "Authentication failed" });
-  }
-});
-
-app.post("/register", async (req, res) => {
-  try {
-    const verificationCode = Math.floor(100000 + Math.random() * 900000);
-
-    const user = await prisma.user.create({
-      data: {
-        name: req.body.name,
-        email: req.body.email,
-        emailVerified: null,
-        password: await bcrypt.hash(req.body.password, 12),
-        verificationToken: verificationCode,
-      },
-    });
-
-    await sendVerificationCode(user.email, verificationCode);
-    const tokens = generateTokens(user.id);
-
-    res.cookie("refreshToken", tokens.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: parseInt(15 * 24 * 60 * 60) * 1000,
-    });
-    res.cookie("user", JSON.stringify(user), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    res.status(201).json({
-      message: "Registration successful",
-      accessToken: tokens.accessToken,
-    });
-  } catch (error) {
-    logger.error("Registration failed:", error);
-    res.status(500).json({ error: "Registration failed" });
-  }
-});
-
-app.post("/verify", async (req, res) => {
-  const { email, code } = req.body;
-  try {
-    const user = await prisma.user.findUnique({ where: { email } });
-
-    if (!user) {
-      return res.status(404).json({ error: "User not found." });
-    }
-    if (user.verificationToken !== parseInt(code)) {
-      return res.status(400).json({ error: "Invalid verification code." });
-    }
-
-    await prisma.user.update({
-      where: { email },
-      data: {
-        emailVerified: new Date(),
-        verificationToken: null,
-      },
-    });
-
-    res.status(200).json({ message: "Email verified successfully." });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.post("/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    const user = await prisma.user.findUnique({
-      where: { email },
-    });
-
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-
-    if (!user && !isPasswordValid) {
-      return res.status(404).json({ error: "User not found." });
-    }
-
-    const { accessToken, refreshToken } = generateTokens(user.id);
-
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge:(15 * 24 * 60 * 60) * 1000,
-    });
-
-    res.status(200).json({
-      message: "Login successful.",
-      user,
-      accessToken,
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
+    cb(null, true);
+  },
 });
 
 const uploadToCloudinary = (buffer, options) => {
@@ -340,9 +167,6 @@ app.post("/upload", upload.single("image"), async (req, res) => {
   }
 });
 
-app.post("logout", authenticateToken,async (res,req) => {
-
-})
 
 app.get("/events", async (req, res) => {
   try {
@@ -412,7 +236,7 @@ app.put("/events/:id", authenticateToken, async (req, res) => {
   }
 });
 
-app.delete("/events/:id", authenticateToken, async (req, res) => {
+app.delete("/events/:id", async (req, res) => {
   const { id } = req.params;
   try {
     const event = await prisma.event.findUnique({
@@ -458,19 +282,20 @@ const gracefulShutdown = (signal) => {
   });
 };
 
-const server = app.listen(process.env.PORT || 8000, () => {
-  logger.info(`Server started on port ${process.env.PORT || 8000}`);
-});
-
-process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
-process.on("SIGINT", () => gracefulShutdown("SIGINT"));
-
-process.on("uncaughtException", (error) => {
-  logger.error("Uncaught Exception:", error);
-  gracefulShutdown("Uncaught Exception");
-});
-
-process.on("unhandledRejection", (reason, promise) => {
-  logger.error("Unhandled Rejection at:", promise, "reason:", reason);
-  gracefulShutdown("Unhandled Rejection");
-});
+  
+  const server = app.listen(process.env.PORT || 8000, () => {
+    logger.info(`Server started on port ${process.env.PORT || 8000}`);
+  });
+  
+  process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+  process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+  
+  process.on("uncaughtException", (error) => {
+    logger.error("Uncaught Exception:", error);
+    gracefulShutdown("Uncaught Exception");
+  });
+  
+  process.on("unhandledRejection", (reason, promise) => {
+    logger.error("Unhandled Rejection at:", promise, "reason:", reason);
+    gracefulShutdown("Unhandled Rejection");
+  });
