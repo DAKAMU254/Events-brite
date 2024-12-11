@@ -8,13 +8,11 @@ import EditEvent from "./pages/event/EditEvent";
 import Layout from "./layout/Layout";
 import Profile from "./pages/Profile";
 import Contact from "./pages/Contact";
-import { EventProvider } from "./context/EventContext";
 import { PrivateRoute, PublicRoute } from "./context/helper";
 
 function App() {
   return (
     <BrowserRouter>
-        <EventProvider>
           <Routes>
             <Route path='/' element={<Layout />}>
               <Route index element={<Home />} />
@@ -31,7 +29,6 @@ function App() {
               </Route>
             </Route>
           </Routes>
-        </EventProvider>
     </BrowserRouter>
   );
 }

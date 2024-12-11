@@ -1,11 +1,11 @@
-import React, { useContext, useState } from "react";
+import React, { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { Link, useParams } from "react-router-dom";
-import { EventContext } from "../../context/EventContext";
+import { useEvents } from "../../context/EventContext";
 
 function EditEvent() {
   const { user } = useAuth();
-  const { editEvent } = useContext(EventContext);
+  const { editEvent } = useEvents()
 
   const [title, setTitle] = useState("");
   const [image, setImage] = useState("");

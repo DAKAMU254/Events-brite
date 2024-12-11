@@ -1,75 +1,259 @@
-import React, { useContext, useState } from 'react'
-import { useAuth } from '../../context/AuthContext'
-import { Link } from 'react-router-dom'
-import { EventContext } from '../../context/EventContext'
+import React, { useState, useEffect } from "react";
+import { Camera, Upload, Loader2 } from "lucide-react";
+import { useEvents } from "../../context/EventContext";
 
-function AddEvent() {
+const AddEvent = () => {
+  const [formState, setFormState] = useState({
+    title: "",
+    description: "",
+    image: null,
+    imageUrl: null,
+  });
+  const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [preview, setPreview] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const { uploadImage, addEvent } = useEvents();
 
-  const {user} = useAuth()
-  const {AddEvent} = useContext(EventContext)
+  const validateForm = () => {
+    const newErrors = {};
+    if (!formState.title.trim()) {
+      newErrors.title = "Title is required";
+    } else if (formState.title.length < 3) {
+      newErrors.title = "Title must be at least 3 characters";
+    }
 
-  const [title, setTitle] = useState()
-  const [image, setImage] = useState()
-  const [description, setDescription] = useState()
+    if (!formState.description.trim()) {
+      newErrors.description = "Description is required";
+    } else if (formState.description.length < 10) {
+      newErrors.description = "Description must be at least 10 characters";
+    }
 
-  const  handleSubmit = (e) =>{
-    e.preventDefault()
+    if (!formState.image && !formState.imageUrl) {
+      newErrors.image = "Please upload an image";
+    }
 
-    AddEvent(title, image, description, user.id)
-}
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormState((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleImageChange = async(file) => {
+    if (file) {
+      if (file.type.startsWith("image/")) {
+        const response = await uploadImage(file);
+        setFormState((prev) => ({
+          ...prev,
+          image: file,
+          imageUrl: response.imageUrl,
+        }));
+        setPreview(URL.createObjectURL(file));
+        console.log(`Preview URL: ${preview}`);
+        console.log( `Image uploaded successfully. URL: ${response.imageUrl}`);
+      } else {
+        setErrors((prev) => ({
+          ...prev,
+          image: "Please upload an image file",
+        }));
+      }
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    handleImageChange(file);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (validateForm()) {
+      setIsSubmitting(true);
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        console.log("Form submitted:", formState);
+        addEvent(formState.title, formState.description, formState.imageUrl)
+        setFormState({
+          title: "",
+          description: "",
+          image: null,
+          imageUrl: null,
+        });
+        setPreview(null);
+      } catch (error) {
+        console.error("Error:", error);
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (preview) {
+        URL.revokeObjectURL(preview);
+      }
+    };
+  }, [preview]);
 
   return (
+    <div className='min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8'>
+      <div className='max-w-md w-full space-y-8 mx-auto'>
+        <div className='text-center'>
+          <h2 className='mt-6 text-3xl font-extrabold text-gray-900'>
+            Add New Event
+          </h2>
+          <p className='mt-2 text-sm text-gray-600'>
+            Fill in the details to create a new event
+          </p>
+        </div>
 
-    <div>
-    <div className="container" style={{"min-height":"70vh"}}>
-      {user && user?
-      <>
-        
-        <div class="col-md-10 mx-auto col-lg-5">
-        <h3 className='text-center'>Add Event</h3>
-        <form class="p-4 p-md-5 border rounded-3 bg-light" onSubmit={handleSubmit}>
-          <div class="form-floating mb-3">
-            <input type="text" onChange={(e)=> setTitle(e.target.value)} class="form-control" id="floatingInput" placeholder=""/>
-            <label for="floatingInput">Title</label>
+        <form className='mt-8 space-y-6' onSubmit={handleSubmit}>
+          {/* Image Upload */}
+          <div
+            className={`relative border-2 border-dashed rounded-lg p-6 transition-all duration-200 ease-in-out ${
+              isDragging ? "border-blue-500 bg-blue-50" : "border-gray-300"
+            } ${errors.image ? "border-red-500" : ""}`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            <input
+              type='file'
+              id='image-upload'
+              className='hidden'
+              accept='image/*'
+              onChange={(e) => handleImageChange(e.target.files[0])}
+            />
+            <label
+              htmlFor='image-upload'
+              className='cursor-pointer block text-center'
+            >
+              {preview ? (
+                <div className='relative mx-auto w-32 h-32'>
+                  <img
+                  
+                    src={preview}
+                    alt='Preview'
+                    className='w-full h-full object-cover rounded-lg'
+                  />
+                  <div className='absolute inset-0 bg-black bg-opacity-40 rounded-lg flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-200'>
+                    <Camera className='w-8 h-8 text-white' />
+                  </div>
+                </div>
+              ) : (
+                <div className='text-center'>
+                  <Upload className='mx-auto h-12 w-12 text-gray-400' />
+                  <p className='mt-1 text-sm text-gray-600'>
+                    Drag and drop an image or click to upload
+                  </p>
+                </div>
+              )}
+            </label>
+            {errors.image && (
+              <p className='mt-2 text-sm text-red-600'>{errors.image}</p>
+            )}
           </div>
-          <div class="form-floating mb-3">
-            <input type="text" onChange={(e)=> setImage(e.target.value)} class="form-control" id="floatingInput" placeholder=""/>
-            <label for="floatingInput">Image</label>
+
+          {/* Title Input */}
+          <div>
+            <label
+              htmlFor='title'
+              className='block text-sm font-medium text-gray-700'
+            >
+              Event Title
+            </label>
+            <div className='mt-1'>
+              <input
+                id='title'
+                name='title'
+                type='text'
+                value={formState.title}
+                onChange={handleChange}
+                className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+                  errors.title ? "border-red-500" : "border-gray-300"
+                }`}
+                placeholder='Enter event title'
+              />
+              {errors.title && (
+                <p className='mt-2 text-sm text-red-600'>{errors.title}</p>
+              )}
+            </div>
           </div>
-          <div class="form-floating  mb-3">
-            <input type="text" onChange={(e)=> setDescription(e.target.value)} class="form-control" id="floatingInput" placeholder=""/>
-            <label for="floatingInput">Description</label>
+
+          {/* Description Input */}
+          <div>
+            <label
+              htmlFor='description'
+              className='block text-sm font-medium text-gray-700'
+            >
+              Event Description
+            </label>
+            <div className='mt-1'>
+              <textarea
+                id='description'
+                name='description'
+                value={formState.description}
+                onChange={handleChange}
+                rows='4'
+                className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+                  errors.description ? "border-red-500" : "border-gray-300"
+                }`}
+                placeholder='Enter event description'
+              />
+              {errors.description && (
+                <p className='mt-2 text-sm text-red-600'>
+                  {errors.description}
+                </p>
+              )}
+            </div>
           </div>
-          <button class="w-100 btn btn-lg btn-info" type="submit">Add Event</button>
-          <hr class="my-4"/>
-          <small class="text-muted">By clicking Add Event, you agree to the terms of use.</small>
+
+          {/* Submit Button */}
+          <div>
+            <button
+              type='submit'
+              disabled={isSubmitting}
+              className='w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed'
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className='animate-spin -ml-1 mr-3 h-5 w-5 text-white' />
+                  Processing...
+                </>
+              ) : (
+                "Add Event"
+              )}
+            </button>
+          </div>
+
+          <div className='mt-4 text-center'>
+            <p className='text-xs text-gray-500'>
+              By clicking Add Event, you agree to the terms of use.
+            </p>
+          </div>
         </form>
       </div>
-    
-    </>
-    : 
-    <>
-<div class="modal modal-alert position-static d-block  py-5" tabindex="-1" role="dialog" id="modalChoice">
-  <div class="modal-dialog" role="document">
-    <div class="modal-content rounded-3 shadow">
-      <div class="modal-body p-4 text-center shadow">
-        <h5 class="mb-0">Wan't to access this Page?</h5>
-        <p class="mb-0">Unauthorised user!</p>
-      </div>
-      <div class=" btn-group modal-footerflex-nowrap p-0">
-        <Link to='/signup' type="button" class="  text-white btn btn-lg btn-info fs-6 text-decoration-none col-6 m-0 rounded-0 border-end"><strong>Sign up</strong></Link>
-        <Link to='/login' type="button" class="  text-white  btn btn-lg btn-info fs-6 text-decoration-none col-6 m-0 rounded-0" data-bs-dismiss="modal"><strong>Log in</strong></Link>
-      </div>
     </div>
-  </div>
-</div>
-    
-    </>
-   
-  }
-   </div>
-    </div>
-  )
-}
+  );
+};
 
-export default AddEvent
+export default AddEvent;

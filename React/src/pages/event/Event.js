@@ -1,10 +1,10 @@
-import React, { useContext } from "react";
-import { EventContext } from "../../context/EventContext";
+import React from "react";
+import {  useEvents } from "../../context/EventContext";
 import { useAuth } from "../../context/AuthContext";
 import { Link, useParams } from "react-router-dom";
 
 export default function Events() {
-  const { events, deleteEvent } = useContext(EventContext);
+  const { events, deleteEvent } = useEvents()
   const { user } = useAuth();
 
   const { id } = useParams();

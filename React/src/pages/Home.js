@@ -1,11 +1,10 @@
 import React from "react";
 import image1 from "./images/home.jpg";
 import { Link } from "react-router-dom";
-import { useContext } from "react";
-import { EventContext } from "../context/EventContext";
+import { useEvents } from "../context/EventContext";
 
 function Home() {
-  const { events } = useContext(EventContext);
+  const { events } = useEvents()
 
   return (
     <div>
@@ -41,7 +40,9 @@ function Home() {
               </p>
               <div class='d-grid gap-2 d-md-flex justify-content-md-start'>
                 <button type='button' class='btn btn-outline-info btn-lg px-4'>
+                  <Link href='#events'>
                   View Events Now
+                  </Link>
                 </button>
               </div>
             </div>
@@ -66,14 +67,9 @@ function Home() {
         </div>
       </section>
 
-      {events && events.length < 1 ? (
-        <div className='text-info'>There are no events at the moment</div>
-      ) : (
-        ""
-      )}
 
       {events && events.length < 1 ? (
-        <div className='text-info'>There are no events at the moment</div>
+        <div className='text-info text-center'>There are no events at the moment</div>
       ) : (
         <div className='container-fluid'>
           <div className='row'>

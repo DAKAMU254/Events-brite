@@ -4,9 +4,9 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url = env("POSTGRES_PRISMA_URL") 
+  directUrl = env("POSTGRES_URL_NON_POOLING")
 }
-
 model User {
   id                String    @id @default(uuid())
   name              String?
@@ -19,5 +19,22 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  events Event[] 
+
   @@map("users")
+}
+
+model Event {
+  id          String   @id @default(uuid())
+  title       String
+  image       String   
+  description String
+
+  userId   String
+  user     User      @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("events")
 }
